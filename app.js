@@ -4,7 +4,7 @@
  * @Autor: Wukun
  * @Date: 2026-01-12 09:27:41
  * @LastEditors: Wukun
- * @LastEditTime: 2026-01-12 09:27:43
+ * @LastEditTime: 2026-01-12 17:00:30
  */
 const express = require("express");
 const mysql = require("mysql2");
@@ -21,14 +21,47 @@ const db = mysql.createConnection({
   database: "railway"
 });
 
-// 2. 微信支付配置（替换为你的商户信息）
+// 2. 微信配置
 const WX_CONFIG = {
-  appid: "你的小程序appid",
-  mchid: "你的商户号",
-  apiKey: "你的商户API密钥（在微信商户平台设置）"
+  appid: "wx68267f14257bbaf2",
+  appsecret: "d2d6bcb84ceec139bc9d1b5d073c9789", // 在微信公众平台获取
+  mchid: "733987928",
+  apiKey: "d2d6bcb84ceec139bc9d1b5d073c9789"
 };
 
-// 3. 生成订单接口
+// 3. 获取用户 openid 接口
+app.post("/api/getOpenid", async (req, res) => {
+  const { code } = req.body;
+
+  if (!code) {
+    return res.json({ code: -1, msg: "缺少 code 参数" });
+  }
+
+  try {
+    // 调用微信接口获取 openid
+    const https = require('https');
+    const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${WX_CONFIG.appid}&secret=${WX_CONFIG.appsecret}&js_code=${code}&grant_type=authorization_code`;
+
+    https.get(url, (response) => {
+      let data = '';
+      response.on('data', (chunk) => { data += chunk; });
+      response.on('end', () => {
+        const result = JSON.parse(data);
+        if (result.openid) {
+          res.json({ code: 0, openid: result.openid, session_key: result.session_key });
+        } else {
+          res.json({ code: -1, msg: result.errmsg || "获取 openid 失败" });
+        }
+      });
+    }).on('error', (err) => {
+      res.json({ code: -1, msg: "请求微信接口失败" });
+    });
+  } catch (error) {
+    res.json({ code: -1, msg: "服务器错误" });
+  }
+});
+
+// 4. 生成订单接口
 app.post("/api/createOrder", (req, res) => {
   const { dishes, totalPrice, openid } = req.body;
   // 生成唯一订单号（时间戳+随机数）
