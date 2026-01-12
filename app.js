@@ -62,28 +62,89 @@ app.post("/api/getOpenid", async (req, res) => {
 });
 
 // 4. 生成订单接口
-app.post("/api/createOrder", (req, res) => {
+app.post("/api/createOrder", async (req, res) => {
   const { dishes, totalPrice, openid } = req.body;
-  // 生成唯一订单号（时间戳+随机数）
   const orderNo = Date.now() + "" + Math.floor(Math.random() * 1000);
+
   // 1. 保存订单到数据库
   const orderSql = "INSERT INTO orders (order_no, openid, dishes, total_price, status) VALUES (?, ?, ?, ?, ?)";
-  db.query(orderSql, [orderNo, openid, JSON.stringify(dishes), totalPrice, "unpaid"], (err) => {
+  db.query(orderSql, [orderNo, openid, JSON.stringify(dishes), totalPrice, "unpaid"], async (err) => {
     if (err) return res.json({ code: -1, msg: "生成订单失败" });
 
-    // 2. 调用微信支付「统一下单」接口
-    const payInfo = createWxPayParams(orderNo, totalPrice, openid);
-    res.json({ code: 0, orderNo, payInfo });
+    // 2. 调用微信支付统一下单获取 prepay_id
+    try {
+      const prepayId = await getWxPayPrepayId(orderNo, totalPrice, openid);
+      const payInfo = createWxPayParams(prepayId);
+      res.json({ code: 0, orderNo, payInfo });
+    } catch (error) {
+      res.json({ code: -1, msg: "获取支付参数失败: " + error.message });
+    }
   });
 });
 
-// 4. 生成微信支付参数（核心：签名生成）
-function createWxPayParams(orderNo, totalPrice, openid) {
+// 5. 调用微信支付统一下单 API (V2版本,更简单)
+async function getWxPayPrepayId(orderNo, totalPrice, openid) {
+  const https = require('https');
+  const xml2js = require('xml2js');
+
+  // 构建请求参数
+  const params = {
+    appid: WX_CONFIG.appid,
+    mch_id: WX_CONFIG.mchid,
+    nonce_str: Math.random().toString(36).substr(2, 15),
+    body: '餐厅订单',
+    out_trade_no: orderNo,
+    total_fee: Math.round(totalPrice * 100), // 单位:分
+    spbill_create_ip: '127.0.0.1',
+    notify_url: 'https://restaurant-backend-w69y.onrender.com/api/pay/callback',
+    trade_type: 'JSAPI',
+    openid: openid
+  };
+
+  // 生成签名
+  const signStr = Object.keys(params)
+    .sort()
+    .map(key => `${key}=${params[key]}`)
+    .join('&') + `&key=${WX_CONFIG.apiKey}`;
+  params.sign = CryptoJS.MD5(signStr).toString().toUpperCase();
+
+  // 构建 XML 请求体
+  const builder = new xml2js.Builder({ rootName: 'xml', headless: true });
+  const xmlData = builder.buildObject(params);
+
+  // 发送请求
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.mch.weixin.qq.com',
+      path: '/pay/unifiedorder',
+      method: 'POST',
+      headers: { 'Content-Type': 'text/xml' }
+    }, (response) => {
+      let data = '';
+      response.on('data', chunk => { data += chunk; });
+      response.on('end', () => {
+        xml2js.parseString(data, (err, result) => {
+          if (err || result.xml.return_code[0] !== 'SUCCESS') {
+            reject(new Error(result?.xml?.return_msg?.[0] || '统一下单失败'));
+          } else {
+            resolve(result.xml.prepay_id[0]);
+          }
+        });
+      });
+    });
+    req.on('error', reject);
+    req.write(xmlData);
+    req.end();
+  });
+}
+
+// 6. 生成小程序支付参数
+function createWxPayParams(prepayId) {
   const timeStamp = Math.floor(Date.now() / 1000) + "";
   const nonceStr = Math.random().toString(36).substr(2, 15);
-  const packageVal = "prepay_id=wx202601121234567890"; // 实际需调用微信支付API获取prepay_id，此处简化
-  
-  // 生成支付签名（微信支付要求的MD5签名）
+  const packageVal = `prepay_id=${prepayId}`;
+
+  // 生成支付签名
   const signStr = `appId=${WX_CONFIG.appid}&nonceStr=${nonceStr}&package=${packageVal}&signType=MD5&timeStamp=${timeStamp}&key=${WX_CONFIG.apiKey}`;
   const paySign = CryptoJS.MD5(signStr).toString().toUpperCase();
 
@@ -91,6 +152,7 @@ function createWxPayParams(orderNo, totalPrice, openid) {
     timeStamp,
     nonceStr,
     package: packageVal,
+    signType: 'MD5',
     paySign
   };
 }

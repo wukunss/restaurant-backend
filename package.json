@@ -10,6 +10,7 @@
     "express": "^5.2.1",
     "mysql2": "^3.16.0",
     "npm": "^11.7.0",
-    "wechatpay-node-v3": "^2.2.1"
+    "wechatpay-node-v3": "^2.2.1",
+    "xml2js": "^0.6.2"
   }
 }
