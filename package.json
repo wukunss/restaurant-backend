@@ -1,0 +1,15 @@
+{
+  "name": "restaurant-backend",
+  "version": "1.0.0",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "crypto-js": "^4.2.0",
+    "express": "^5.2.1",
+    "mysql2": "^3.16.0",
+    "npm": "^11.7.0",
+    "wechatpay-node-v3": "^2.2.1"
+  }
+}

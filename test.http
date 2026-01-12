@@ -1,0 +1,15 @@
+### 测试创建订单接口
+POST http://localhost:3000/api/createOrder
+Content-Type: application/json
+
+{
+  "openid": "test_user_001",
+  "dishes": [
+    {"name": "宫保鸡丁", "price": 38, "quantity": 1},
+    {"name": "番茄炒蛋", "price": 25, "quantity": 2}
+  ],
+  "totalPrice": 88
+}
+
+### 测试健康检查
+GET http://localhost:3000/
