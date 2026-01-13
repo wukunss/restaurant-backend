@@ -4,7 +4,7 @@
  * @Autor: Wukun
  * @Date: 2026-01-12 09:27:41
  * @LastEditors: Wukun
- * @LastEditTime: 2026-01-12 17:00:30
+ * @LastEditTime: 2026-01-13 15:28:39
  */
 const express = require("express");
 const mysql = require("mysql2");
@@ -26,7 +26,7 @@ const WX_CONFIG = {
   appid: "wx68267f14257bbaf2",
   appsecret: "d2d6bcb84ceec139bc9d1b5d073c9789", // 在微信公众平台获取
   mchid: "733987928",
-  apiKey: "d2d6bcb84ceec139bc9d1b5d073c9789"
+  apiKey: "4CgNaSMSmQ7cCWgJ/4B8WFXFBuKHfSJd7q/q5EwDXQA="
 };
 
 // 3. 获取用户 openid 接口
